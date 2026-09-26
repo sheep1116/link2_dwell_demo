@@ -100,6 +100,73 @@ gateway can either be called directly from `PrintTrigger()` or launch this demo
 as a subprocess and forward only lines beginning with `EVENT:` to the elderly
 Web page.
 
+## CloudBase event uploader
+
+The MVP uploader is implemented as a separate Node.js wrapper, so the stable
+camera and dwell detector code remains unchanged. It starts this executable,
+parses only `EVENT:` lines, assigns an idempotency ID, and sends the event to the
+configured CloudBase HTTPS API.
+
+```powershell
+$env:PRESENCE_SENSOR_TOKEN = '<token issued by the server engineer>'
+$env:PRESENCE_DEVICE_ID = 'living-room-link2'
+.\start-cloud-uploader.ps1
+```
+
+Until the server implements the `presenceReport` action, validate the complete
+camera-to-uploader path without network writes:
+
+```powershell
+.\start-cloud-uploader.ps1 -DryRun
+```
+
+See `CLOUD-UPLOAD-HANDOFF.md` for the event contract, backend work, and iPad Web
+integration checklist. The uploader never sends frames, images, head boxes, or
+face identity data.
+
+The concrete deliverables to request from the backend and iPad Web engineers
+are listed in `FRONTEND-BACKEND-REQUESTS.md`.
+
+### Local MVP endpoint
+
+If a backend engineer is running the presence-enabled service locally on port
+8787, use the local wrapper. It reads credentials only from parameters or the
+current process environment; it never reads or creates a token file in this
+repository.
+
+```powershell
+$env:PRESENCE_SENSOR_TOKEN = '<token supplied by the local server operator>'
+$env:PRESENCE_DEVICE_ID = 'living-room-link2'
+.\start-local-mvp-uploader.ps1
+```
+
+To test the complete sender without a camera, pipe one synthetic Demo event to
+the same wrapper:
+
+```powershell
+$now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+'EVENT:{"type":"presence.dwell","timestamp":' + $now + ',"dwellMs":4200,"headCount":1}' |
+  .\start-local-mvp-uploader.ps1 -Stdin -Once
+```
+
+The local receiver is deliberately not included here: this repository contains
+only the Windows Link 2 sender. `.presence-mvp-token`, `.env*`, and
+`presence.local.*` are ignored and must never be committed.
+
+### Sender tests
+
+Node.js 20 or later is required for the uploader. The PowerShell launchers use
+Node from `PATH`; when this repository is kept inside the supplied workspace,
+they can also discover the bundled runtime under the adjacent frontend package.
+
+```powershell
+node --check .\presence_uploader.cjs
+node --test .\test\presence_uploader.test.cjs
+```
+
+The tests use a loopback-only temporary HTTP receiver and do not contact
+CloudBase or open the camera.
+
 ## Calibration notes
 
 `UVCRect` contains only a position and size. It does not expose face

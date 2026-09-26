@@ -29,3 +29,11 @@
 *.log
 *.tmp
 *.user
+
+# Local sensor credentials and machine-specific configuration
+/.presence-mvp-token
+/.env
+/.env.*
+!/.env.example
+/presence.local.json
+/presence.local.ps1
